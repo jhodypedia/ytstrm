@@ -7,7 +7,7 @@
   --primary:#0d6efd; --primary-600:#0b5ed7; --primary-700:#0a58ca;
   --bg:#f5f7fb; --card:#ffffff;
   --text:#212529; --muted:#6c757d; --border:#e9ecef;
-  --success:#28a745; --danger:#dc3545;
+  --success:#28a745; --danger:#dc3545; --warn:#ffc107; --info:#0dcaf0;
 }
 
 *{box-sizing:border-box}
@@ -90,10 +90,11 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);lin
 /* Badges for status */
 .badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:12px;color:#fff}
 .badge.live {background:var(--success)}
+.badge.error {background:var(--danger)}
+.badge.warn {background:var(--warn);color:#222}
+.badge.info {background:var(--info);color:#fff}
 .badge.complete {background:#6c757d}
 .badge.created,.badge.ready,.badge.testing,.badge.revoked,.badge.liveStarting {background:#0ea5e9}
-.badge.liveStarting, .badge.liveStarting {background:#0ea5e9}
-.badge.complete, .badge.completed {background:#6c757d}
 
 /* Log Panel */
 .logview {
@@ -103,14 +104,16 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);lin
   border: 1px solid #0f1b33;
   padding: 12px;
   font-family: ui-monospace, Menlo, Consolas, monospace;
-
-  /* fix height + scroll */
-  height: 220px;       /* bisa disesuaikan */
+  height: 220px;
   overflow-y: auto;
-  resize: vertical;    /* biar user bisa tarik resize manual (opsional) */
+  resize: vertical;
   white-space: pre-wrap;
   line-height: 1.4;
 }
+.logview .text-danger{color:var(--danger)!important}
+.logview .text-success{color:var(--success)!important}
+.logview .text-warning{color:var(--warn)!important}
+.logview .text-info{color:var(--info)!important}
 
 /* KPI */
 .kpi{display:flex;gap:24px;justify-content:space-around;text-align:center}
