@@ -35,6 +35,11 @@ app.set('layout', 'layout');
 // Static
 app.use('/public', express.static(path.join(process.cwd(), 'public')));
 
+app.use((req, res, next) => {
+  res.locals.session = req.session; // biar bisa dipakai di semua ejs
+  next();
+});
+
 // Routes
 app.use('/auth', authRouter);
 app.use('/live', liveRouter);
