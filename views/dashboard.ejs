@@ -1,34 +1,29 @@
-
 <div class="grid-2">
   <!-- Form Start Live -->
-  <section class="cardx" data-aos="fade-up">
-    <h5 class="mb-3"><i class="fa fa-tower-broadcast me-2"></i>Mulai Live</h5>
+  <section class="cardx rise" data-aos="fade-up">
+    <h5 class="mb-3"><i class="fa fa-tower-broadcast me-2"></i> Mulai Live</h5>
     <form id="startForm" enctype="multipart/form-data">
       <div class="mb-2">
         <label class="form-label">Judul</label>
-        <input type="text" name="title" class="form-control" placeholder="Judul live..." required>
+        <input type="text" name="title" class="form-control" required>
       </div>
       <div class="mb-3">
         <label class="form-label">Deskripsi</label>
-        <textarea name="description" class="form-control" placeholder="Deskripsi..."></textarea>
+        <textarea name="description" class="form-control"></textarea>
       </div>
 
       <div class="grid-2 gap-12">
         <div>
           <label class="form-label">Privacy</label>
           <select name="privacyStatus" class="form-select">
-            <option value="public">public</option>
-            <option value="unlisted" selected>unlisted</option>
-            <option value="private">private</option>
+            <option value="public">Public</option>
+            <option value="unlisted" selected>Unlisted</option>
+            <option value="private">Private</option>
           </select>
         </div>
         <div>
-          <label class="form-label">Kategori</label>
-          <select name="categoryId" class="form-select">
-            <option value="22" selected>People & Blogs</option>
-            <option value="24">Entertainment</option>
-            <option value="10">Music</option>
-          </select>
+          <label class="form-label">Kategori (Realtime)</label>
+          <select name="categoryId" class="form-select"><option>Memuat…</option></select>
         </div>
       </div>
 
@@ -44,8 +39,8 @@
         <div>
           <label class="form-label">Loop</label>
           <select name="loop" class="form-select">
-            <option value="yes" selected>yes</option>
-            <option value="no">no</option>
+            <option value="yes" selected>Yes</option>
+            <option value="no">No</option>
           </select>
         </div>
       </div>
@@ -69,7 +64,7 @@
         <div>
           <label class="form-label">Thumbnail (opsional)</label>
           <input type="file" name="thumbnail" class="form-control" accept="image/*">
-          <div class="form-text">Jika kosong → thumbnail otomatis dari video</div>
+          <div class="form-text">Kosongkan → auto-generate dari video</div>
         </div>
       </div>
 
@@ -78,21 +73,20 @@
         <input type="file" name="cover" class="form-control" accept="image/*,video/*">
       </div>
 
-      <!-- Progress Upload -->
-      <div class="progress mt-3" style="height:10px">
+      <div class="progress mt-3 glow" style="height:10px">
         <div id="uploadBar" class="progress-bar" role="progressbar" style="width:0%"></div>
       </div>
       <div class="small mt-1 text-muted" id="uploadPct">0%</div>
 
       <div class="d-flex gap-2 mt-3">
-        <button class="btn btn-primary" id="startBtn"><i class="fa fa-play me-1"></i> START</button>
+        <button class="btn btn-primary pulse" id="startBtn"><i class="fa fa-play me-1"></i> START</button>
         <button type="button" id="stopBtn" class="btn btn-outline-danger"><i class="fa fa-stop me-1"></i> STOP</button>
       </div>
     </form>
   </section>
 
   <!-- Status + Logs -->
-  <section class="cardx" data-aos="fade-up" data-aos-delay="100">
+  <section class="cardx rise" data-aos="fade-up" data-aos-delay="100">
     <h5 class="mb-3"><i class="fa fa-signal me-2"></i>Status</h5>
     <div class="kpi">
       <div>
@@ -113,14 +107,15 @@
   </section>
 </div>
 
-<!-- Tabel Demo -->
-<section class="cardx mt-3" data-aos="fade-up">
-  <h6 class="mb-2">Riwayat (contoh DataTable manual)</h6>
-  <table class="tablex" id="demoTable">
+<!-- Broadcast List (Realtime) -->
+<section class="cardx rise" data-aos="fade-up">
+  <h6 class="mb-2">Riwayat Broadcast</h6>
+  <table class="tablex">
     <thead>
-      <tr><th>#</th><th>Broadcast ID</th><th>Privacy</th><th>Tanggal</th></tr>
+      <tr><th>Judul</th><th>Status</th><th>Start</th><th>Link</th></tr>
     </thead>
-    <tbody id="demoBody"></tbody>
+    <tbody id="broadcastTable">
+      <tr><td colspan="4" class="text-center text-muted">Memuat data…</td></tr>
+    </tbody>
   </table>
-  <div class="paginationx" id="pager"></div>
 </section>
