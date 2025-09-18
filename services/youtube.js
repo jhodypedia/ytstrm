@@ -14,6 +14,7 @@ const yt = (tokens) => {
 export async function createStreamAndBroadcast({ tokens, title, description, privacyStatus='unlisted', categoryId='22' }) {
   const youtube = yt(tokens);
 
+  // Stream (RTMP ingest)
   const s = await youtube.liveStreams.insert({
     part: ['snippet,cdn,status'],
     requestBody: {
@@ -25,7 +26,8 @@ export async function createStreamAndBroadcast({ tokens, title, description, pri
   const ing = s.data.cdn?.ingestionInfo;
   const rtmpUrl = `${ing?.ingestionAddress}/${ing?.streamName}`;
 
-  const startISO = new Date(Date.now() + 60 * 1000).toISOString();
+  // Broadcast, jadwal NOW
+  const startISO = new Date().toISOString();
   const b = await youtube.liveBroadcasts.insert({
     part: ['snippet,contentDetails,status'],
     requestBody: {
@@ -35,6 +37,7 @@ export async function createStreamAndBroadcast({ tokens, title, description, pri
     }
   });
 
+  // Bind
   await youtube.liveBroadcasts.bind({
     part: ['id,contentDetails'], id: b.data.id, streamId: s.data.id
   });
@@ -42,9 +45,48 @@ export async function createStreamAndBroadcast({ tokens, title, description, pri
   return { broadcastId: b.data.id, rtmpUrl };
 }
 
-export async function setThumbnail(tokens, videoOrBroadcastId, filePath) {
+export async function goLiveNow(tokens, broadcastId) {
+  const youtube = yt(tokens);
+  return await youtube.liveBroadcasts.transition({
+    broadcastStatus: 'live',
+    id: broadcastId,
+    part: 'id,status'
+  });
+}
+
+export async function endBroadcast(tokens, broadcastId) {
+  const youtube = yt(tokens);
+  return await youtube.liveBroadcasts.transition({
+    broadcastStatus: 'complete',
+    id: broadcastId,
+    part: 'id,status'
+  });
+}
+
+// Thumbnail (pakai broadcastId sebagai videoId saat live)
+export async function setThumbnail(tokens, broadcastId, filePath) {
   const youtube = yt(tokens);
   const stream = fs.createReadStream(filePath);
-  const res = await youtube.thumbnails.set({ videoId: videoOrBroadcastId, media: { body: stream } });
-  return res.data;
+  return await youtube.thumbnails.set({ videoId: broadcastId, media: { body: stream } });
+}
+
+// Video categories (lokalisasi id untuk Indonesia)
+export async function listCategories(tokens) {
+  const youtube = yt(tokens);
+  const { data } = await youtube.videoCategories.list({
+    part: 'id,snippet',
+    regionCode: 'ID'
+  });
+  return data.items || [];
+}
+
+// List broadcasts (riwayat)
+export async function listBroadcasts(tokens) {
+  const youtube = yt(tokens);
+  const { data } = await youtube.liveBroadcasts.list({
+    part: 'id,snippet,status',
+    mine: true,
+    maxResults: 25
+  });
+  return data.items || [];
 }
