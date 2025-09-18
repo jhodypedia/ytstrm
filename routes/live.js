@@ -2,7 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import rimraf from 'rimraf';
+import { rimraf } from 'rimraf';
 
 import { requireAuth } from '../middleware/auth.js';
 import { createStreamAndBroadcast, setThumbnail } from '../services/youtube.js';
