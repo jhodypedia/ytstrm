@@ -1,0 +1,126 @@
+
+<div class="grid-2">
+  <!-- Form Start Live -->
+  <section class="cardx" data-aos="fade-up">
+    <h5 class="mb-3"><i class="fa fa-tower-broadcast me-2"></i>Mulai Live</h5>
+    <form id="startForm" enctype="multipart/form-data">
+      <div class="mb-2">
+        <label class="form-label">Judul</label>
+        <input type="text" name="title" class="form-control" placeholder="Judul live..." required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Deskripsi</label>
+        <textarea name="description" class="form-control" placeholder="Deskripsi..."></textarea>
+      </div>
+
+      <div class="grid-2 gap-12">
+        <div>
+          <label class="form-label">Privacy</label>
+          <select name="privacyStatus" class="form-select">
+            <option value="public">public</option>
+            <option value="unlisted" selected>unlisted</option>
+            <option value="private">private</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Kategori</label>
+          <select name="categoryId" class="form-select">
+            <option value="22" selected>People & Blogs</option>
+            <option value="24">Entertainment</option>
+            <option value="10">Music</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid-3 gap-12 mt-3">
+        <div>
+          <label class="form-label">Video Bitrate</label>
+          <input type="text" name="vbitrate" class="form-control" value="4500k">
+        </div>
+        <div>
+          <label class="form-label">Audio Bitrate</label>
+          <input type="text" name="abitrate" class="form-control" value="128k">
+        </div>
+        <div>
+          <label class="form-label">Loop</label>
+          <select name="loop" class="form-select">
+            <option value="yes" selected>yes</option>
+            <option value="no">no</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="mt-3">
+        <label class="form-label">Max Retry (auto-restart FFmpeg)</label>
+        <select name="maxRetry" class="form-select">
+          <option value="0">0 (no restart)</option>
+          <option value="1">1x</option>
+          <option value="2">2x</option>
+          <option value="3" selected>3x</option>
+          <option value="5">5x</option>
+        </select>
+      </div>
+
+      <div class="grid-2 gap-12 mt-3">
+        <div>
+          <label class="form-label">Video (wajib)</label>
+          <input type="file" name="video" class="form-control" accept="video/*" required>
+        </div>
+        <div>
+          <label class="form-label">Thumbnail (opsional)</label>
+          <input type="file" name="thumbnail" class="form-control" accept="image/*">
+          <div class="form-text">Jika kosong → thumbnail otomatis dari video</div>
+        </div>
+      </div>
+
+      <div class="mt-3">
+        <label class="form-label">Cover (opsional, 10 detik awal)</label>
+        <input type="file" name="cover" class="form-control" accept="image/*,video/*">
+      </div>
+
+      <!-- Progress Upload -->
+      <div class="progress mt-3" style="height:10px">
+        <div id="uploadBar" class="progress-bar" role="progressbar" style="width:0%"></div>
+      </div>
+      <div class="small mt-1 text-muted" id="uploadPct">0%</div>
+
+      <div class="d-flex gap-2 mt-3">
+        <button class="btn btn-primary" id="startBtn"><i class="fa fa-play me-1"></i> START</button>
+        <button type="button" id="stopBtn" class="btn btn-outline-danger"><i class="fa fa-stop me-1"></i> STOP</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- Status + Logs -->
+  <section class="cardx" data-aos="fade-up" data-aos-delay="100">
+    <h5 class="mb-3"><i class="fa fa-signal me-2"></i>Status</h5>
+    <div class="kpi">
+      <div>
+        <div class="muted">FFmpeg</div>
+        <div class="num" id="ffStatus">-</div>
+      </div>
+      <div>
+        <div class="muted">Uptime</div>
+        <div class="num" id="uptime">0s</div>
+      </div>
+      <div>
+        <div class="muted">Retry</div>
+        <div class="num" id="retryCnt">0</div>
+      </div>
+    </div>
+    <hr>
+    <pre class="logview" id="logs">Log akan tampil di sini…</pre>
+  </section>
+</div>
+
+<!-- Tabel Demo -->
+<section class="cardx mt-3" data-aos="fade-up">
+  <h6 class="mb-2">Riwayat (contoh DataTable manual)</h6>
+  <table class="tablex" id="demoTable">
+    <thead>
+      <tr><th>#</th><th>Broadcast ID</th><th>Privacy</th><th>Tanggal</th></tr>
+    </thead>
+    <tbody id="demoBody"></tbody>
+  </table>
+  <div class="paginationx" id="pager"></div>
+</section>
