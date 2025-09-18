@@ -57,7 +57,7 @@ router.post(
       const cover = req.files?.cover?.[0];
       let coverPath = cover ? cover.path : null;
 
-      // Buat stream + broadcast langsung
+      // Buat stream + broadcast
       const { broadcastId, rtmpUrl } = await createStreamAndBroadcast({
         tokens: req.session.tokens,
         title, description, privacyStatus, categoryId
@@ -85,15 +85,25 @@ router.post(
         maxRetry
       });
 
-      // Begitu FFmpeg benar-benar encode frame → paksa LIVE
-      streamer.once('status', async (s) => {
-        if (s.type === 'encoding') {
-          try {
-            await goLiveNow(req.session.tokens, broadcastId);
-            ioRef?.emit('ffmpeg:log', { line: '✅ Paksa transition → LIVE\n' });
-          } catch (err) {
-            ioRef?.emit('ffmpeg:log', { line: '❌ Transition gagal: ' + err.message + '\n' });
+      // === Auto retry transition LIVE ===
+      const tryGoLive = async (attempt = 1) => {
+        try {
+          await goLiveNow(req.session.tokens, broadcastId);
+          ioRef?.emit('ffmpeg:status', { type: 'accepted', msg: `✅ Transition → LIVE berhasil (percobaan ${attempt})` });
+        } catch (err) {
+          ioRef?.emit('ffmpeg:status', { type: 'retry', msg: `⚠️ Transition gagal (${attempt}): ${err.message}` });
+          if (attempt < 5) { // coba ulang max 5 kali
+            setTimeout(() => tryGoLive(attempt + 1), 5000);
+          } else {
+            ioRef?.emit('ffmpeg:status', { type: 'error', msg: '❌ Transition gagal setelah 5 percobaan' });
           }
+        }
+      };
+
+      // Tunggu FFmpeg encoding → mulai coba transition
+      streamer.once('status', (s) => {
+        if (s.type === 'encoding') {
+          setTimeout(() => tryGoLive(1), 8000); // delay awal 8 detik biar YouTube siap
         }
       });
 
