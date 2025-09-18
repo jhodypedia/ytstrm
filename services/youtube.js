@@ -1,7 +1,7 @@
 import { google } from 'googleapis';
 import fs from 'fs';
 
-export const yt = (tokens) => {
+const yt = (tokens) => {
   const oauth = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
