@@ -16,33 +16,32 @@ import {
 import { streamer, generateThumbnail } from '../services/ffmpeg.js';
 
 const router = express.Router();
-const upload = multer({ dest: 'uploads/' });
+
+// === Multer Storage dengan ekstensi asli ===
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, 'uploads/'),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname); // ambil ekstensi asli
+    cb(null, `${Date.now()}-${file.fieldname}${ext}`);
+  }
+});
+const upload = multer({ storage });
 
 let ioRef = null;
 let currentBroadcastId = null;
+let uploadedFiles = []; // simpan semua path upload untuk nanti dihapus
 
-// === Socket attach for logs ===
+// attach IO for logs
 export const attachIO = (io) => {
   ioRef = io;
-  streamer.on('start', () => {
-    ioRef.emit('ffmpeg:status', { type: 'encoding', msg: '🎬 FFmpeg started' });
-  });
-  streamer.on('stop', () => {
-    ioRef.emit('ffmpeg:status', { type: 'stopped', msg: '🛑 FFmpeg stopped' });
-  });
-  streamer.on('log', (d) => {
-    // filter log biar tidak spam
-    const line = d.line || '';
-    if (
-      line.includes('bitrate') ||
-      line.includes('frame=') ||
-      line.includes('speed=')
-    ) return;
-  });
+  streamer.on('start', (p) => ioRef.emit('ffmpeg:start', p));
+  streamer.on('log', (l) => ioRef.emit('ffmpeg:log', l));
+  streamer.on('status', (s) => ioRef.emit('ffmpeg:status', s));
+  streamer.on('stop', (s) => ioRef.emit('ffmpeg:stop', s));
 };
 
-// === Helper: Poll broadcast status ===
-async function waitUntilReady(youtube, broadcastId, maxAttempts = 10) {
+// helper: poll broadcast status
+async function waitUntilReady(youtube, broadcastId, maxAttempts = 6) {
   for (let i = 0; i < maxAttempts; i++) {
     try {
       const { data } = await youtube.liveBroadcasts.list({
@@ -56,29 +55,30 @@ async function waitUntilReady(youtube, broadcastId, maxAttempts = 10) {
     } catch (err) {
       console.error('poll error', err.message);
     }
-    await new Promise(r => setTimeout(r, 5000)); // tunggu 5 detik
+    await new Promise(r => setTimeout(r, 5000));
   }
   return false;
 }
 
-// === Dashboard ===
+// === DASHBOARD ===
 router.get('/dashboard', requireAuth, (req, res) => {
   res.render('dashboard', { title: 'Dashboard' });
 });
 
-// === Start Live ===
+// === START LIVE ===
 router.post(
   '/start',
   requireAuth,
   upload.fields([
     { name: 'video', maxCount: 1 },
-    { name: 'thumbnail', maxCount: 1 }
+    { name: 'thumbnail', maxCount: 1 },
+    { name: 'cover', maxCount: 1 }
   ]),
   async (req, res) => {
     try {
       const {
         title, description,
-        privacyStatus = 'public',
+        privacyStatus = 'unlisted',
         categoryId = '22',
         loop = 'yes',
         maxRetry = '3'
@@ -90,27 +90,38 @@ router.post(
 
       const video = req.files?.video?.[0];
       if (!video) return res.status(400).json({ ok: false, error: 'Video wajib diupload' });
+      uploadedFiles.push(video.path);
 
-      // Buat stream + broadcast
       const { broadcastId, rtmpUrl } = await createStreamAndBroadcast({
         tokens: req.session.tokens,
         title, description, privacyStatus, categoryId
       });
       currentBroadcastId = broadcastId;
 
-      // Thumbnail manual / auto
+      // Thumbnail manual/auto
       if (req.files?.thumbnail?.[0]) {
-        await setThumbnail(req.session.tokens, broadcastId, req.files.thumbnail[0].path);
+        const thumbFile = req.files.thumbnail[0];
+        uploadedFiles.push(thumbFile.path);
+        await setThumbnail(req.session.tokens, broadcastId, thumbFile.path);
       } else {
         const thumbPath = path.join('uploads', `thumb-${Date.now()}.jpg`);
         await generateThumbnail(video.path, thumbPath);
+        uploadedFiles.push(thumbPath);
         await setThumbnail(req.session.tokens, broadcastId, thumbPath);
+      }
+
+      // Cover opsional
+      let coverPath = null;
+      if (req.files?.cover?.[0]) {
+        coverPath = req.files.cover[0].path;
+        uploadedFiles.push(coverPath);
       }
 
       // Start FFmpeg
       streamer.start({
         inputPath: video.path,
         rtmpUrl,
+        coverPath,
         vbit: vbitrate,
         abit: abitrate,
         fps,
@@ -118,22 +129,11 @@ router.post(
         maxRetry
       });
 
-      // Setelah FFmpeg jalan → tunggu broadcast ready lalu LIVE
+      // Transition ke LIVE
       streamer.once('start', async () => {
         try {
-          const { yt } = await import('../services/youtube.js');
-          const youtube = yt(req.session.tokens);
-
-          ioRef?.emit('ffmpeg:status', { type: 'info', msg: '⏳ Menunggu broadcast ready…' });
-
-          const ready = await waitUntilReady(youtube, broadcastId);
-
-          if (ready) {
-            await goLiveNow(req.session.tokens, broadcastId);
-            ioRef?.emit('ffmpeg:status', { type: 'accepted', msg: '✅ Broadcast sudah LIVE!' });
-          } else {
-            ioRef?.emit('ffmpeg:status', { type: 'error', msg: '❌ Broadcast tidak siap untuk LIVE' });
-          }
+          await goLiveNow(req.session.tokens, broadcastId);
+          ioRef?.emit('ffmpeg:status', { type: 'accepted', msg: '✅ Broadcast langsung LIVE' });
         } catch (err) {
           ioRef?.emit('ffmpeg:status', { type: 'error', msg: '❌ Transition gagal: ' + err.message });
         }
@@ -147,24 +147,26 @@ router.post(
   }
 );
 
-// === Stop Live ===
+// === STOP LIVE ===
 router.post('/stop', requireAuth, async (req, res) => {
   try {
     const stopped = streamer.stop();
+
     if (currentBroadcastId) {
       try {
         await endBroadcast(req.session.tokens, currentBroadcastId);
-        ioRef?.emit('ffmpeg:status', { type: 'stopped', msg: '✅ Broadcast diakhiri' });
+        ioRef?.emit('ffmpeg:log', { line: '✅ Broadcast diakhiri (complete)\n' });
       } catch (err) {
-        ioRef?.emit('ffmpeg:status', { type: 'error', msg: '⚠️ Gagal endBroadcast: ' + err.message });
+        ioRef?.emit('ffmpeg:log', { line: '⚠️ Gagal endBroadcast: ' + err.message + '\n' });
       }
       currentBroadcastId = null;
     }
 
     // Hapus semua file upload
-    const uploadDir = path.join(process.cwd(), 'uploads');
-    rimraf.sync(uploadDir);
-    fs.mkdirSync(uploadDir);
+    for (const file of uploadedFiles) {
+      try { fs.unlinkSync(file); } catch {}
+    }
+    uploadedFiles = [];
 
     res.json({ ok: true, stopped });
   } catch (e) {
