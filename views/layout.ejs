@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>PansaTube</title>
+  <title><%= title || 'YT Live Pro' %></title>
 
   <!-- Google Font -->
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
@@ -19,47 +19,51 @@
   <link href="/css/style.css" rel="stylesheet"/>
 </head>
 <body>
-  <!-- Topbar -->
-  <header class="topbar">
-    <button class="icon-btn" id="sidebarToggle" aria-label="Toggle sidebar">
-      <span class="bar"></span><span class="bar"></span><span class="bar"></span>
-    </button>
-    <div class="brand">
-      <i class="text-danger me-2 fa-brands fa-youtube"></i> YT Live Pro
-    </div>
-    <% if (session && session.tokens) { %>
-    <div class="profile">
-      <div class="avatar" id="profileMenuBtn">YS</div>
-      <div class="dropdown" id="profileMenu">
-        <a href="/auth/logout"><i class="fa fa-right-from-bracket me-1"></i> Logout</a>
-      </div>
-    </div>
-    <% } %>
-  </header>
 
-  <!-- Shell -->
-  <div class="shell">
-    <!-- Sidebar -->
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar-inner">
-        <a class="side-link <%= title==='Dashboard' ? 'active' : '' %>" href="/live/dashboard">
-          <i class="fa fa-gauge"></i> Dashboard
-        </a>
-        <a class="side-link" href="#" onclick="toastr.info('Coming soon');return false;">
-          <i class="fa fa-calendar"></i> Scheduler
-        </a>
-        <a class="side-link" href="#" onclick="toastr.info('Coming soon');return false;">
-          <i class="fa fa-gear"></i> Settings
-        </a>
+  <% if (session && session.tokens) { %>
+    <!-- Topbar -->
+    <header class="topbar">
+      <button class="icon-btn" id="sidebarToggle" aria-label="Toggle sidebar">
+        <span class="bar"></span><span class="bar"></span><span class="bar"></span>
+      </button>
+      <div class="brand">
+        <i class="text-danger me-2 fa-brands fa-youtube"></i> YT Live Pro
       </div>
-      <div class="sidebar-footer small">© <%= new Date().getFullYear() %> YT Live Pro</div>
-    </aside>
+      <div class="profile">
+        <div class="avatar" id="profileMenuBtn">YS</div>
+        <div class="dropdown" id="profileMenu">
+          <a href="/auth/logout"><i class="fa fa-right-from-bracket me-1"></i> Logout</a>
+        </div>
+      </div>
+    </header>
 
-    <!-- Main -->
+    <!-- Shell with sidebar -->
+    <div class="shell">
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-inner">
+          <a class="side-link <%= title==='Dashboard' ? 'active' : '' %>" href="/live/dashboard">
+            <i class="fa fa-gauge"></i> Dashboard
+          </a>
+          <a class="side-link" href="#" onclick="toastr.info('Coming soon');return false;">
+            <i class="fa fa-calendar"></i> Scheduler
+          </a>
+          <a class="side-link" href="#" onclick="toastr.info('Coming soon');return false;">
+            <i class="fa fa-gear"></i> Settings
+          </a>
+        </div>
+        <div class="sidebar-footer small">© <%= new Date().getFullYear() %> YT Live Pro</div>
+      </aside>
+
+      <main class="main">
+        <%- body %>
+      </main>
+    </div>
+  <% } else { %>
+    <!-- Kalau belum login, tampilkan konten langsung tanpa sidebar -->
     <main class="main">
       <%- body %>
     </main>
-  </div>
+  <% } %>
 
   <!-- Scripts -->
   <script src="https://kit.fontawesome.com/4a40f2c3c9.js" crossorigin="anonymous"></script>
