@@ -118,23 +118,33 @@ router.post(
 // === STOP LIVE ===
 router.post('/stop', requireAuth, async (req, res) => {
   try {
-    const ok = streamer.stop();
+    const stopped = streamer.stop();
+
     if (currentBroadcastId) {
-      await endBroadcast(req.session.tokens, currentBroadcastId);
-      ioRef?.emit('ffmpeg:log', { line: '✅ Broadcast diakhiri (complete)\n' });
+      try {
+        await endBroadcast(req.session.tokens, currentBroadcastId);
+        ioRef?.emit('ffmpeg:log', { line: '✅ Broadcast diakhiri (complete)\n' });
+      } catch (apiErr) {
+        // Kalau gagal end di YouTube, tetap sukses stop FFmpeg
+        ioRef?.emit('ffmpeg:log', { line: '⚠️ Gagal endBroadcast di YouTube: ' + apiErr.message + '\n' });
+      }
       currentBroadcastId = null;
     }
-    res.json({ ok: true, stopped: ok });
+
+    // === AUTO CLEANUP FILE UPLOADS ===
+    try {
+      const uploadDir = path.join(process.cwd(), 'uploads');
+      rimraf.sync(uploadDir);
+      fs.mkdirSync(uploadDir);
+      ioRef?.emit('ffmpeg:log', { line: '🧹 Uploads dibersihkan\n' });
+    } catch (cleanupErr) {
+      ioRef?.emit('ffmpeg:log', { line: '⚠️ Gagal cleanup: ' + cleanupErr.message + '\n' });
+    }
+
+    res.json({ ok: true, stopped });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
-});
-
-// === Cleanup uploads ===
-router.post('/cleanup', requireAuth, (req, res) => {
-  rimraf.sync(path.join(process.cwd(), 'uploads'));
-  fs.mkdirSync('uploads');
-  res.json({ ok: true, msg: 'uploads cleared' });
 });
 
 // === API dashboard ===
