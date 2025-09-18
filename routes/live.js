@@ -6,6 +6,7 @@ import { rimraf } from 'rimraf';
 
 import { requireAuth } from '../middleware/auth.js';
 import {
+  yt,
   createStreamAndBroadcast,
   setThumbnail,
   goLiveNow,
@@ -21,7 +22,7 @@ const upload = multer({ dest: 'uploads/' });
 let ioRef = null;
 let currentBroadcastId = null;
 
-// attach IO for logs
+// === Attach IO untuk logs realtime ===
 export const attachIO = (io) => {
   ioRef = io;
   streamer.on('start', (p) => ioRef.emit('ffmpeg:start', p));
@@ -30,7 +31,7 @@ export const attachIO = (io) => {
   streamer.on('stop', (s) => ioRef.emit('ffmpeg:stop', s));
 };
 
-// helper: poll broadcast status
+// === Helper: tunggu sampai broadcast ready ===
 async function waitUntilReady(youtube, broadcastId, maxAttempts = 6) {
   for (let i = 0; i < maxAttempts; i++) {
     try {
@@ -45,7 +46,7 @@ async function waitUntilReady(youtube, broadcastId, maxAttempts = 6) {
     } catch (err) {
       console.error('poll error', err.message);
     }
-    await new Promise(r => setTimeout(r, 5000)); // tunggu 5 detik
+    await new Promise((r) => setTimeout(r, 5000)); // tunggu 5 detik
   }
   return false;
 }
@@ -67,8 +68,9 @@ router.post(
   async (req, res) => {
     try {
       const {
-        title, description,
-        privacyStatus = 'unlisted',
+        title,
+        description,
+        privacyStatus = 'public',
         categoryId = '22',
         loop = 'yes',
         maxRetry = '3'
@@ -79,15 +81,20 @@ router.post(
       const fps = 30;
 
       const video = req.files?.video?.[0];
-      if (!video) return res.status(400).json({ ok: false, error: 'Video wajib diupload' });
+      if (!video) {
+        return res.status(400).json({ ok: false, error: 'Video wajib diupload' });
+      }
 
       const { broadcastId, rtmpUrl } = await createStreamAndBroadcast({
         tokens: req.session.tokens,
-        title, description, privacyStatus, categoryId
+        title,
+        description,
+        privacyStatus,
+        categoryId
       });
       currentBroadcastId = broadcastId;
 
-      // thumbnail
+      // === Thumbnail ===
       if (req.files?.thumbnail?.[0]) {
         await setThumbnail(req.session.tokens, broadcastId, req.files.thumbnail[0].path);
       } else {
@@ -96,7 +103,7 @@ router.post(
         await setThumbnail(req.session.tokens, broadcastId, thumbPath);
       }
 
-      // start ffmpeg
+      // === Mulai FFmpeg ===
       streamer.start({
         inputPath: video.path,
         rtmpUrl,
@@ -107,27 +114,40 @@ router.post(
         maxRetry
       });
 
-      // transition logic
+      // === Transition ke LIVE ===
       const tryGoLive = async () => {
-        const youtube = require('../services/youtube.js').yt(req.session.tokens);
+        const youtube = yt(req.session.tokens);
 
-        ioRef?.emit('ffmpeg:status', { type: 'info', msg: '⏳ Menunggu broadcast ready...' });
+        ioRef?.emit('ffmpeg:status', {
+          type: 'info',
+          msg: '⏳ Menunggu broadcast ready...'
+        });
+
         const ready = await waitUntilReady(youtube, broadcastId);
 
         if (!ready) {
-          ioRef?.emit('ffmpeg:status', { type: 'error', msg: '❌ Broadcast tidak pernah siap untuk live' });
+          ioRef?.emit('ffmpeg:status', {
+            type: 'error',
+            msg: '❌ Broadcast tidak pernah siap untuk live'
+          });
           return;
         }
 
         try {
           await goLiveNow(req.session.tokens, broadcastId);
-          ioRef?.emit('ffmpeg:status', { type: 'accepted', msg: '✅ Transition → LIVE berhasil!' });
+          ioRef?.emit('ffmpeg:status', {
+            type: 'accepted',
+            msg: '✅ Transition → LIVE berhasil!'
+          });
         } catch (err) {
-          ioRef?.emit('ffmpeg:status', { type: 'error', msg: '❌ Transition gagal: ' + err.message });
+          ioRef?.emit('ffmpeg:status', {
+            type: 'error',
+            msg: '❌ Transition gagal: ' + err.message
+          });
         }
       };
 
-      // tunggu encoding baru jalankan check
+      // Tunggu encoding dulu baru coba live
       streamer.once('status', (s) => {
         if (s.type === 'encoding') {
           setTimeout(() => tryGoLive(), 10000); // delay 10 detik
@@ -155,7 +175,8 @@ router.post('/stop', requireAuth, async (req, res) => {
       }
       currentBroadcastId = null;
     }
-    // cleanup
+
+    // cleanup uploads
     const uploadDir = path.join(process.cwd(), 'uploads');
     rimraf.sync(uploadDir);
     fs.mkdirSync(uploadDir);
