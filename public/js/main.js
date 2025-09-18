@@ -6,7 +6,6 @@ const profileMenu = document.getElementById('profileMenu');
 
 sidebarToggle?.addEventListener('click', () => {
   sidebar.classList.toggle('collapsed');
-  // hide label text when collapsed (optional)
   document.querySelectorAll('.side-link .txt').forEach(el => {
     el.style.display = sidebar.classList.contains('collapsed') ? 'none' : 'inline';
   });
@@ -23,7 +22,7 @@ document.addEventListener('click', (e) => {
 // === Toastr defaults ===
 toastr.options = { positionClass: 'toast-bottom-right', timeOut: 2500 };
 
-// === Socket.IO for FFmpeg logs ===
+// === Socket.IO for FFmpeg logs & status ===
 const socket = io();
 const logs = document.getElementById('logs');
 const ffStatus = document.getElementById('ffStatus');
@@ -44,11 +43,12 @@ const stopUptime = () => { clearInterval(uptimeTimer); uptimeEl.textContent = "0
 
 socket.on('ffmpeg:start', () => {
   ffStatus.textContent = 'RUNNING';
-  ffStatus.classList.add('text-success');
+  ffStatus.className = 'badge bg-warning text-dark';
   startUptime();
   retryCnt.textContent = '0';
   toastr.success('FFmpeg started');
 });
+
 socket.on('ffmpeg:log', (d) => {
   if (!logs) return;
   const line = (d.line || d).toString();
@@ -63,9 +63,33 @@ socket.on('ffmpeg:log', (d) => {
     if (match) retryCnt.textContent = match[1];
   }
 });
+
+// === NEW: status events ===
+socket.on('ffmpeg:status', (s) => {
+  if (s.type === 'encoding') {
+    ffStatus.textContent = 'Encoding…';
+    ffStatus.className = 'badge bg-info text-dark';
+  }
+  if (s.type === 'accepted') {
+    ffStatus.textContent = 'LIVE ✅';
+    ffStatus.className = 'badge bg-success live-badge';
+    toastr.success('Stream accepted by YouTube (LIVE)');
+  }
+  if (s.type === 'error') {
+    ffStatus.textContent = 'ERROR';
+    ffStatus.className = 'badge bg-danger';
+    toastr.error(s.msg);
+  }
+
+  if (logs) {
+    logs.textContent += `[STATUS] ${s.msg}\n`;
+    logs.scrollTop = logs.scrollHeight;
+  }
+});
+
 socket.on('ffmpeg:stop', () => {
   ffStatus.textContent = 'STOPPED';
-  ffStatus.classList.remove('text-success');
+  ffStatus.className = 'badge bg-secondary';
   stopUptime();
   toastr.info('FFmpeg stopped');
 });
@@ -101,17 +125,17 @@ startForm?.addEventListener('submit', (e) => {
     try {
       const res = JSON.parse(xhr.responseText || '{}');
       if (res.ok) {
-        toastr.success('Live dimulai');
+        toastr.success('Live started');
         uploadBar.style.width = '100%';
         uploadPct.textContent = '100%';
         loadBroadcasts();
       } else {
-        toastr.error(res.error || 'Gagal start');
+        toastr.error(res.error || 'Start failed');
         uploadBar.style.width = '0%';
         uploadPct.textContent = '0%';
       }
     } catch {
-      toastr.error('Response tidak valid');
+      toastr.error('Invalid response');
     }
   };
 
@@ -131,11 +155,11 @@ stopBtn?.addEventListener('click', async () => {
     toastr.info('Stop signal sent');
     loadBroadcasts();
   } else {
-    toastr.error('Gagal stop');
+    toastr.error('Failed to stop');
   }
 });
 
-// === Load Broadcasts real ===
+// === Load Broadcasts realtime ===
 async function loadBroadcasts() {
   try {
     const res = await fetch('/live/list');
@@ -150,24 +174,23 @@ async function loadBroadcasts() {
         tr.className = 'fade-in';
         tr.innerHTML = `
           <td>${b.snippet.title}</td>
-          <td><span class="badge ${b.status.lifeCycleStatus}">${b.status.lifeCycleStatus}</span></td>
+          <td><span class="badge bg-secondary">${b.status.lifeCycleStatus}</span></td>
           <td>${date.toLocaleString()}</td>
           <td><a href="https://youtube.com/watch?v=${b.id}" target="_blank">
               <i class="fa fa-external-link"></i></a></td>`;
         body.appendChild(tr);
       });
     } else {
-      body.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Tidak ada broadcast</td></tr>';
+      body.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No broadcasts</td></tr>';
     }
   } catch (e) {
     console.error(e);
   }
 }
-// initial & interval refresh
 loadBroadcasts();
 setInterval(loadBroadcasts, 15000);
 
-// === Load Kategori real ===
+// === Load Categories realtime ===
 async function loadCategories() {
   try {
     const res = await fetch('/live/categories');
