@@ -22,49 +22,37 @@ const upload = multer({ dest: 'uploads/' });
 let ioRef = null;
 let currentBroadcastId = null;
 
-// === Attach IO untuk logs realtime ===
 export const attachIO = (io) => {
   ioRef = io;
-  streamer.on('start', (p) => ioRef.emit('ffmpeg:start', p));
+  streamer.on('start', () => ioRef.emit('ffmpeg:status', { msg: '🚀 FFmpeg started' }));
   streamer.on('log', (l) => ioRef.emit('ffmpeg:log', l));
-  streamer.on('status', (s) => ioRef.emit('ffmpeg:status', s));
-  streamer.on('stop', (s) => ioRef.emit('ffmpeg:stop', s));
+  streamer.on('stop', () => ioRef.emit('ffmpeg:status', { msg: '🛑 FFmpeg stopped' }));
 };
 
-// === Helper: tunggu sampai broadcast ready ===
-async function waitUntilReady(youtube, broadcastId, maxAttempts = 6) {
+// Poll status broadcast
+async function waitUntilReady(youtube, broadcastId, maxAttempts = 10) {
   for (let i = 0; i < maxAttempts; i++) {
-    try {
-      const { data } = await youtube.liveBroadcasts.list({
-        part: 'id,status',
-        id: broadcastId
-      });
-      const item = data.items?.[0];
-      if (item?.status?.lifeCycleStatus === 'ready') {
-        return true;
-      }
-    } catch (err) {
-      console.error('poll error', err.message);
-    }
-    await new Promise((r) => setTimeout(r, 5000)); // tunggu 5 detik
+    const { data } = await youtube.liveBroadcasts.list({
+      part: 'id,status',
+      id: broadcastId
+    });
+    const item = data.items?.[0];
+    if (item?.status?.lifeCycleStatus === 'ready') return true;
+    await new Promise(r => setTimeout(r, 5000));
   }
   return false;
 }
 
-// === DASHBOARD ===
+// === Dashboard ===
 router.get('/dashboard', requireAuth, (req, res) => {
   res.render('dashboard', { title: 'Dashboard' });
 });
 
-// === START LIVE ===
+// === Start Live ===
 router.post(
   '/start',
   requireAuth,
-  upload.fields([
-    { name: 'video', maxCount: 1 },
-    { name: 'thumbnail', maxCount: 1 },
-    { name: 'cover', maxCount: 1 }
-  ]),
+  upload.fields([{ name: 'video' }, { name: 'thumbnail' }]),
   async (req, res) => {
     try {
       const {
@@ -81,10 +69,9 @@ router.post(
       const fps = 30;
 
       const video = req.files?.video?.[0];
-      if (!video) {
-        return res.status(400).json({ ok: false, error: 'Video wajib diupload' });
-      }
+      if (!video) return res.status(400).json({ ok: false, error: 'Video wajib diupload' });
 
+      // Create broadcast
       const { broadcastId, rtmpUrl } = await createStreamAndBroadcast({
         tokens: req.session.tokens,
         title,
@@ -93,8 +80,9 @@ router.post(
         categoryId
       });
       currentBroadcastId = broadcastId;
+      ioRef?.emit('ffmpeg:status', { msg: '📡 Broadcast dibuat' });
 
-      // === Thumbnail ===
+      // Thumbnail
       if (req.files?.thumbnail?.[0]) {
         await setThumbnail(req.session.tokens, broadcastId, req.files.thumbnail[0].path);
       } else {
@@ -103,7 +91,7 @@ router.post(
         await setThumbnail(req.session.tokens, broadcastId, thumbPath);
       }
 
-      // === Mulai FFmpeg ===
+      // Start FFmpeg
       streamer.start({
         inputPath: video.path,
         rtmpUrl,
@@ -114,43 +102,19 @@ router.post(
         maxRetry
       });
 
-      // === Transition ke LIVE ===
-      const tryGoLive = async () => {
+      // Poll ready → go live
+      streamer.once('start', async () => {
         const youtube = yt(req.session.tokens);
-
-        ioRef?.emit('ffmpeg:status', {
-          type: 'info',
-          msg: '⏳ Menunggu broadcast ready...'
-        });
-
         const ready = await waitUntilReady(youtube, broadcastId);
-
-        if (!ready) {
-          ioRef?.emit('ffmpeg:status', {
-            type: 'error',
-            msg: '❌ Broadcast tidak pernah siap untuk live'
-          });
-          return;
-        }
-
-        try {
-          await goLiveNow(req.session.tokens, broadcastId);
-          ioRef?.emit('ffmpeg:status', {
-            type: 'accepted',
-            msg: '✅ Transition → LIVE berhasil!'
-          });
-        } catch (err) {
-          ioRef?.emit('ffmpeg:status', {
-            type: 'error',
-            msg: '❌ Transition gagal: ' + err.message
-          });
-        }
-      };
-
-      // Tunggu encoding dulu baru coba live
-      streamer.once('status', (s) => {
-        if (s.type === 'encoding') {
-          setTimeout(() => tryGoLive(), 10000); // delay 10 detik
+        if (ready) {
+          try {
+            await goLiveNow(req.session.tokens, broadcastId);
+            ioRef?.emit('ffmpeg:status', { msg: '✅ Transition → LIVE' });
+          } catch (err) {
+            ioRef?.emit('ffmpeg:status', { msg: '❌ Gagal LIVE: ' + err.message });
+          }
+        } else {
+          ioRef?.emit('ffmpeg:status', { msg: '❌ Broadcast tidak siap untuk LIVE' });
         }
       });
 
@@ -162,25 +126,23 @@ router.post(
   }
 );
 
-// === STOP LIVE ===
+// === Stop Live ===
 router.post('/stop', requireAuth, async (req, res) => {
   try {
     const stopped = streamer.stop();
     if (currentBroadcastId) {
       try {
         await endBroadcast(req.session.tokens, currentBroadcastId);
-        ioRef?.emit('ffmpeg:log', { line: '✅ Broadcast diakhiri (complete)\n' });
+        ioRef?.emit('ffmpeg:status', { msg: '🛑 Broadcast ended' });
       } catch (err) {
-        ioRef?.emit('ffmpeg:log', { line: '⚠️ Gagal endBroadcast: ' + err.message + '\n' });
+        ioRef?.emit('ffmpeg:status', { msg: '⚠️ endBroadcast gagal: ' + err.message });
       }
       currentBroadcastId = null;
     }
 
-    // cleanup uploads
     const uploadDir = path.join(process.cwd(), 'uploads');
     rimraf.sync(uploadDir);
     fs.mkdirSync(uploadDir);
-    ioRef?.emit('ffmpeg:log', { line: '🧹 Uploads dibersihkan\n' });
 
     res.json({ ok: true, stopped });
   } catch (e) {
