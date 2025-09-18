@@ -12,18 +12,20 @@ class FFStreamer extends EventEmitter {
     this.maxRetry = 3;
   }
 
-  start({ inputPath, rtmpUrl, coverPath=null, vbit='4500k', abit='128k', fps=30, loop=true }) {
+  start({ inputPath, rtmpUrl, coverPath=null, vbit='4500k', abit='128k', fps=30, loop=true, maxRetry=3 }) {
     if (this.running) throw new Error('FFmpeg sudah berjalan');
     this.lastArgs = { inputPath, rtmpUrl, coverPath, vbit, abit, fps, loop };
     this.retry = 0;
+    this.maxRetry = Number(maxRetry) || 3;
     this._spawn();
   }
 
   _spawn() {
     const { inputPath, rtmpUrl, coverPath, vbit, abit, fps, loop } = this.lastArgs;
-
     let args;
+
     if (coverPath) {
+      // Cover 10 detik lalu loop video utama
       args = [
         '-stream_loop', '1', '-t', '10', '-re', '-i', coverPath,
         ...(loop ? ['-stream_loop', '-1'] : []), '-re', '-i', inputPath,
@@ -60,10 +62,10 @@ class FFStreamer extends EventEmitter {
 
       if (this.retry < this.maxRetry) {
         this.retry++;
-        this.emit('log', { line: `⚠️ FFmpeg mati. Restart attempt ${this.retry}/${this.maxRetry}...` });
+        this.emit('log', { line: `⚠️ Restart attempt ${this.retry}/${this.maxRetry}\n` });
         setTimeout(() => this._spawn(), 3000);
       } else {
-        this.emit('log', { line: '❌ FFmpeg gagal setelah beberapa percobaan.' });
+        this.emit('log', { line: '❌ FFmpeg gagal setelah beberapa percobaan.\n' });
       }
     });
   }
@@ -77,13 +79,12 @@ class FFStreamer extends EventEmitter {
   }
 
   status() {
-    return { running: this.running, retry: this.retry };
+    return { running: this.running, retry: this.retry, maxRetry: this.maxRetry };
   }
 }
 
 export const streamer = new FFStreamer();
 
-// Generate thumbnail otomatis dari video utama
 export async function generateThumbnail(videoPath, outPath) {
   return new Promise((resolve, reject) => {
     const ff = spawn('ffmpeg', ['-ss', '00:00:02', '-i', videoPath, '-frames:v', '1', outPath]);
