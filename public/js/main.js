@@ -64,21 +64,53 @@ socket.on('ffmpeg:log', (d) => {
   }
 });
 
-// === NEW: status events ===
+// === Status Events (encoding, retry, live, error) ===
 socket.on('ffmpeg:status', (s) => {
   if (s.type === 'encoding') {
     ffStatus.textContent = 'Encoding…';
     ffStatus.className = 'badge bg-info text-dark';
   }
+
+  if (s.type === 'retry') {
+    ffStatus.textContent = 'Retrying…';
+    ffStatus.className = 'badge bg-warning text-dark';
+    toastr.warning(s.msg);
+  }
+
   if (s.type === 'accepted') {
     ffStatus.textContent = 'LIVE ✅';
     ffStatus.className = 'badge bg-success live-badge';
-    toastr.success('Stream accepted by YouTube (LIVE)');
+
+    toastr.success(s.msg);
+
+    // SweetAlert2 popup besar saat LIVE
+    Swal.fire({
+      icon: 'success',
+      title: '🚀 You are LIVE!',
+      text: 'Your broadcast is now live on YouTube.',
+      confirmButtonText: 'Awesome!',
+      confirmButtonColor: '#198754',
+      background: '#fff',
+      backdrop: `
+        rgba(0,0,0,0.6)
+        url("https://media.giphy.com/media/3o7abB06u9bNzA8lu8/giphy.gif")
+        center top
+        no-repeat
+      `
+    });
   }
+
   if (s.type === 'error') {
     ffStatus.textContent = 'ERROR';
     ffStatus.className = 'badge bg-danger';
     toastr.error(s.msg);
+
+    Swal.fire({
+      icon: 'error',
+      title: 'Live Failed',
+      text: s.msg,
+      confirmButtonColor: '#dc3545'
+    });
   }
 
   if (logs) {
@@ -147,15 +179,37 @@ startForm?.addEventListener('submit', (e) => {
   xhr.send(fd);
 });
 
-// === Stop button ===
+// === Stop button with confirmation ===
 stopBtn?.addEventListener('click', async () => {
-  const r = await fetch('/live/stop', { method: 'POST' });
-  const j = await r.json();
-  if (j.ok) {
-    toastr.info('Stop signal sent');
-    loadBroadcasts();
-  } else {
-    toastr.error('Failed to stop');
+  const result = await Swal.fire({
+    title: 'Stop Live?',
+    text: 'Are you sure you want to end the live broadcast?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc3545',
+    cancelButtonColor: '#6c757d',
+    confirmButtonText: 'Yes, stop it!',
+    cancelButtonText: 'Cancel'
+  });
+
+  if (result.isConfirmed) {
+    const r = await fetch('/live/stop', { method: 'POST' });
+    const j = await r.json();
+    if (j.ok) {
+      Swal.fire({
+        icon: 'success',
+        title: 'Broadcast Ended',
+        text: 'Your live stream has been stopped.',
+        confirmButtonColor: '#198754'
+      });
+      loadBroadcasts();
+    } else {
+      Swal.fire({
+        icon: 'error',
+        title: 'Failed',
+        text: 'Could not stop the broadcast.'
+      });
+    }
   }
 });
 
