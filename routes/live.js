@@ -21,6 +21,7 @@ const upload = multer({ dest: 'uploads/' });
 let ioRef = null;
 let currentBroadcastId = null;
 
+// Attach IO for realtime logs
 export const attachIO = (io) => {
   ioRef = io;
   streamer.on('start', (p) => ioRef.emit('ffmpeg:start', p));
@@ -29,7 +30,7 @@ export const attachIO = (io) => {
   streamer.on('stop', (s) => ioRef.emit('ffmpeg:stop', s));
 };
 
-// Dashboard
+// === Dashboard page ===
 router.get('/dashboard', requireAuth, (req, res) => {
   res.render('dashboard', { title: 'Dashboard' });
 });
@@ -56,7 +57,7 @@ router.post(
       const cover = req.files?.cover?.[0];
       let coverPath = cover ? cover.path : null;
 
-      // Buat broadcast + stream langsung
+      // Buat stream + broadcast langsung
       const { broadcastId, rtmpUrl } = await createStreamAndBroadcast({
         tokens: req.session.tokens,
         title, description, privacyStatus, categoryId
@@ -84,13 +85,15 @@ router.post(
         maxRetry
       });
 
-      // Paksa langsung LIVE begitu FFmpeg jalan
-      streamer.once('start', async () => {
-        try {
-          await goLiveNow(req.session.tokens, broadcastId);
-          ioRef?.emit('ffmpeg:log', { line: '✅ Broadcast langsung LIVE\n' });
-        } catch (err) {
-          ioRef?.emit('ffmpeg:log', { line: '❌ Transition gagal: ' + err.message + '\n' });
+      // Begitu FFmpeg benar-benar encode frame → paksa LIVE
+      streamer.once('status', async (s) => {
+        if (s.type === 'encoding') {
+          try {
+            await goLiveNow(req.session.tokens, broadcastId);
+            ioRef?.emit('ffmpeg:log', { line: '✅ Paksa transition → LIVE\n' });
+          } catch (err) {
+            ioRef?.emit('ffmpeg:log', { line: '❌ Transition gagal: ' + err.message + '\n' });
+          }
         }
       });
 
@@ -117,7 +120,7 @@ router.post('/stop', requireAuth, async (req, res) => {
   }
 });
 
-// Cleanup uploads
+// === Cleanup uploads ===
 router.post('/cleanup', requireAuth, (req, res) => {
   rimraf.sync(path.join(process.cwd(), 'uploads'));
   fs.mkdirSync('uploads');
