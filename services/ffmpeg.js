@@ -25,11 +25,23 @@ class FFStreamer extends EventEmitter {
     let args;
 
     if (coverPath) {
-      // Cover 10 detik lalu loop video utama
+      // Cover (image atau video) 10 detik lalu loop video utama
+      // Kalau image → -loop 1, tambah dummy audio
       args = [
-        '-stream_loop', '1', '-t', '10', '-re', '-i', coverPath,
+        '-y',
+        '-stream_loop', '1', '-t', '10',
+        ...(coverPath.match(/\.(jpg|jpeg|png|gif)$/i)
+          ? ['-loop', '1', '-f', 'image2', '-i', coverPath, '-f', 'lavfi', '-t', '10', '-i', 'anullsrc=cl=stereo:r=44100']
+          : ['-re', '-i', coverPath]
+        ),
         ...(loop ? ['-stream_loop', '-1'] : []), '-re', '-i', inputPath,
-        '-filter_complex', '[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[outv][outa]',
+        '-filter_complex',
+          coverPath.match(/\.(jpg|jpeg|png|gif)$/i)
+            ? '[0:v]scale=1280:720:force_original_aspect_ratio=decrease,setsar=1[v0];' +
+              '[1:a]anull[a0];' +
+              '[2:v][2:a]scale=1280:720:force_original_aspect_ratio=decrease,setsar=1[v1];' +
+              '[v0][a0][v1][2:a]concat=n=2:v=1:a=1[outv][outa]'
+            : '[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[outv][outa]',
         '-map', '[outv]', '-map', '[outa]',
         '-c:v', 'libx264', '-preset', 'veryfast',
         '-b:v', vbit, '-maxrate', vbit, '-bufsize', '8M',
@@ -38,6 +50,7 @@ class FFStreamer extends EventEmitter {
         '-f', 'flv', rtmpUrl
       ];
     } else {
+      // Tanpa cover
       args = [
         ...(loop ? ['-stream_loop', '-1'] : []),
         '-re', '-i', inputPath,
@@ -49,11 +62,25 @@ class FFStreamer extends EventEmitter {
       ];
     }
 
-    this.proc = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] });
+    this.proc = spawn('ffmpeg', args, { stdio: ['ignore', 'pipe', 'pipe'] });
     this.running = true;
     this.emit('start', { pid: this.proc.pid, args });
 
-    this.proc.stderr.on('data', (d) => this.emit('log', { line: d.toString() }));
+    this.proc.stderr.on('data', (d) => {
+      const line = d.toString();
+      this.emit('log', { line });
+
+      // === Log parser untuk status ===
+      if (line.includes('frame=') && line.includes('fps=')) {
+        this.emit('status', { type: 'encoding', msg: '🎬 Encoding & streaming…' });
+      }
+      if (line.includes('av_interleaved_write_frame')) {
+        this.emit('status', { type: 'accepted', msg: '✅ Stream accepted by YouTube' });
+      }
+      if (line.toLowerCase().includes('error') || line.toLowerCase().includes('failed')) {
+        this.emit('status', { type: 'error', msg: line.trim() });
+      }
+    });
 
     this.proc.on('close', (code) => {
       this.running = false;
