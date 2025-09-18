@@ -22,7 +22,7 @@ document.addEventListener('click', (e) => {
 // === Toastr defaults ===
 toastr.options = { positionClass: 'toast-bottom-right', timeOut: 2500 };
 
-// === Socket.IO for FFmpeg logs & status ===
+// === Socket.IO ===
 const socket = io();
 const logs = document.getElementById('logs');
 const ffStatus = document.getElementById('ffStatus');
@@ -41,68 +41,50 @@ const startUptime = () => {
 };
 const stopUptime = () => { clearInterval(uptimeTimer); uptimeEl.textContent = "0s"; };
 
+// === Filter log agar tidak spam, hanya event penting ===
+function addLog(msg, type = "info") {
+  if (!logs) return;
+  const time = new Date().toLocaleTimeString();
+  logs.textContent += `[${time}] ${msg}\n`;
+  logs.scrollTop = logs.scrollHeight;
+}
+
+// --- Events dari server ---
 socket.on('ffmpeg:start', () => {
   ffStatus.textContent = 'RUNNING';
   ffStatus.className = 'badge bg-warning text-dark';
   startUptime();
   retryCnt.textContent = '0';
+  addLog('FFmpeg started ✅');
   toastr.success('FFmpeg started');
 });
 
-socket.on('ffmpeg:log', (d) => {
-  if (!logs) return;
-  const line = (d.line || d).toString();
-  logs.textContent += line;
-  if (logs.textContent.length > 120000) {
-    logs.textContent = logs.textContent.slice(-90000);
-  }
-  logs.scrollTop = logs.scrollHeight;
-
-  if (line.includes('Restart attempt')) {
-    const match = line.match(/attempt (\d+)/);
-    if (match) retryCnt.textContent = match[1];
-  }
-});
-
-// === Status Events (encoding, retry, live, error) ===
 socket.on('ffmpeg:status', (s) => {
   if (s.type === 'encoding') {
     ffStatus.textContent = 'Encoding…';
     ffStatus.className = 'badge bg-info text-dark';
-  }
-
-  if (s.type === 'retry') {
-    ffStatus.textContent = 'Retrying…';
-    ffStatus.className = 'badge bg-warning text-dark';
-    toastr.warning(s.msg);
+    addLog(s.msg, 'info');
   }
 
   if (s.type === 'accepted') {
     ffStatus.textContent = 'LIVE ✅';
-    ffStatus.className = 'badge bg-success live-badge';
-
+    ffStatus.className = 'badge bg-success';
+    addLog(s.msg, 'success');
     toastr.success(s.msg);
 
-    // SweetAlert2 popup besar saat LIVE
     Swal.fire({
       icon: 'success',
-      title: '🚀 You are LIVE!',
-      text: 'Your broadcast is now live on YouTube.',
-      confirmButtonText: 'Awesome!',
+      title: '🚀 LIVE!',
+      text: 'Broadcast sudah tayang di YouTube.',
       confirmButtonColor: '#198754',
-      background: '#fff',
-      backdrop: `
-        rgba(0,0,0,0.6)
-        url("https://media.giphy.com/media/3o7abB06u9bNzA8lu8/giphy.gif")
-        center top
-        no-repeat
-      `
+      background: '#fff'
     });
   }
 
   if (s.type === 'error') {
     ffStatus.textContent = 'ERROR';
     ffStatus.className = 'badge bg-danger';
+    addLog(s.msg, 'error');
     toastr.error(s.msg);
 
     Swal.fire({
@@ -113,9 +95,12 @@ socket.on('ffmpeg:status', (s) => {
     });
   }
 
-  if (logs) {
-    logs.textContent += `[STATUS] ${s.msg}\n`;
-    logs.scrollTop = logs.scrollHeight;
+  if (s.type === 'retry') {
+    ffStatus.textContent = 'Retrying…';
+    ffStatus.className = 'badge bg-warning text-dark';
+    retryCnt.textContent = (parseInt(retryCnt.textContent) + 1).toString();
+    addLog(s.msg, 'warn');
+    toastr.warning(s.msg);
   }
 });
 
@@ -123,6 +108,7 @@ socket.on('ffmpeg:stop', () => {
   ffStatus.textContent = 'STOPPED';
   ffStatus.className = 'badge bg-secondary';
   stopUptime();
+  addLog('FFmpeg stopped');
   toastr.info('FFmpeg stopped');
 });
 
@@ -179,17 +165,16 @@ startForm?.addEventListener('submit', (e) => {
   xhr.send(fd);
 });
 
-// === Stop button with confirmation ===
+// === Stop button ===
 stopBtn?.addEventListener('click', async () => {
   const result = await Swal.fire({
     title: 'Stop Live?',
-    text: 'Are you sure you want to end the live broadcast?',
+    text: 'Are you sure you want to end the broadcast?',
     icon: 'warning',
     showCancelButton: true,
     confirmButtonColor: '#dc3545',
     cancelButtonColor: '#6c757d',
-    confirmButtonText: 'Yes, stop it!',
-    cancelButtonText: 'Cancel'
+    confirmButtonText: 'Yes, stop it',
   });
 
   if (result.isConfirmed) {
@@ -198,8 +183,8 @@ stopBtn?.addEventListener('click', async () => {
     if (j.ok) {
       Swal.fire({
         icon: 'success',
-        title: 'Broadcast Ended',
-        text: 'Your live stream has been stopped.',
+        title: 'Stopped',
+        text: 'Your broadcast has ended.',
         confirmButtonColor: '#198754'
       });
       loadBroadcasts();
@@ -213,7 +198,7 @@ stopBtn?.addEventListener('click', async () => {
   }
 });
 
-// === Load Broadcasts realtime ===
+// === Load Broadcasts ===
 async function loadBroadcasts() {
   try {
     const res = await fetch('/live/list');
@@ -230,8 +215,8 @@ async function loadBroadcasts() {
           <td>${b.snippet.title}</td>
           <td><span class="badge bg-secondary">${b.status.lifeCycleStatus}</span></td>
           <td>${date.toLocaleString()}</td>
-          <td><a href="https://youtube.com/watch?v=${b.id}" target="_blank">
-              <i class="fa fa-external-link"></i></a></td>`;
+          <td><a href="https://youtube.com/watch?v=${b.id}" target="_blank"><i class="fa fa-external-link"></i></a></td>
+        `;
         body.appendChild(tr);
       });
     } else {
@@ -244,7 +229,7 @@ async function loadBroadcasts() {
 loadBroadcasts();
 setInterval(loadBroadcasts, 15000);
 
-// === Load Categories realtime ===
+// === Load Categories ===
 async function loadCategories() {
   try {
     const res = await fetch('/live/categories');
@@ -256,7 +241,7 @@ async function loadCategories() {
       const opt = document.createElement('option');
       opt.value = cat.id;
       opt.textContent = cat.snippet.title;
-      if (cat.id === "22") opt.selected = true; // default People & Blogs
+      if (cat.id === "22") opt.selected = true;
       sel.appendChild(opt);
     });
   } catch (e) {
