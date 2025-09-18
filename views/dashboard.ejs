@@ -1,3 +1,4 @@
+
 <div class="grid-2">
   <!-- === FORM START LIVE === -->
   <section class="cardx rise" data-aos="fade-up">
@@ -20,16 +21,14 @@
         <div>
           <label class="form-label">Privacy</label>
           <select name="privacyStatus" class="form-select">
-            <option value="public">Public</option>
-            <option value="unlisted" selected>Unlisted</option>
+            <option value="public" selected>Public</option>
+            <option value="unlisted">Unlisted</option>
             <option value="private">Private</option>
           </select>
         </div>
         <div>
           <label class="form-label">Kategori (Realtime)</label>
-          <select name="categoryId" class="form-select">
-            <option>Memuat…</option>
-          </select>
+          <select name="categoryId" class="form-select"><option>Memuat…</option></select>
         </div>
       </div>
 
@@ -65,12 +64,6 @@
           <input type="file" name="thumbnail" class="form-control" accept="image/*">
           <div class="form-text">Kosongkan → auto-generate dari video</div>
         </div>
-      </div>
-
-      <!-- Cover -->
-      <div class="mt-3">
-        <label class="form-label">Cover (opsional, tampil 10 detik awal)</label>
-        <input type="file" name="cover" class="form-control" accept="image/*,video/*">
       </div>
 
       <!-- Progress -->
@@ -109,7 +102,9 @@
       </div>
     </div>
     <hr>
-    <pre class="logview bg-dark text-light p-2 rounded small" id="logs" style="height:250px; overflow-y:auto;">Log akan tampil di sini…</pre>
+    <div class="logview bg-dark text-light p-2 rounded small" id="logs" style="height:220px; overflow-y:auto;">
+      <div class="muted">Log penting akan tampil di sini…</div>
+    </div>
   </section>
 </div>
 
@@ -134,3 +129,7 @@
     </table>
   </div>
 </section>
+
+<!-- Load JS eksternal -->
+<script src="/socket.io/socket.io.js"></script>
+<script src="/js/main.js"></script>
