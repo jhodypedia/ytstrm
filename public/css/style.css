@@ -1,0 +1,100 @@
+/* ==========================================
+   Global Dashboard CSS - Simple Elegant
+   - Sidebar scrollable
+   - Topbar with left toggle & right profile
+   - Forms, cards, table, pagination
+   - Responsive + micro animations
+========================================== */
+:root{
+  --font: 'Poppins', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  --primary:#0d6efd; --primary-600:#0b5ed7; --primary-700:#0a58ca;
+  --bg:#f6f7fb; --card:#ffffff; --muted:#6c757d; --text:#212529; --border:#e9ecef;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font)}
+
+/* Topbar */
+.topbar{
+  height:56px; background:#fff; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; gap:12px; padding:0 16px; position:sticky; top:0; z-index:50
+}
+.icon-btn{background:transparent;border:0;cursor:pointer;display:inline-flex;flex-direction:column;gap:4px}
+.icon-btn .bar{width:22px;height:2px;background:#222;display:block;transition:.2s}
+.brand{font-weight:700}
+.profile{margin-left:auto;position:relative}
+.avatar{width:34px;height:34px;border-radius:50%;background:#e9ecef;display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:700}
+.profile .dropdown{
+  position:absolute;right:0;top:44px;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.08);
+  padding:8px;display:none;min-width:150px
+}
+.profile .dropdown a{display:block;padding:8px 10px;border-radius:8px;color:var(--text);text-decoration:none}
+.profile .dropdown a:hover{background:#f5f6f8}
+
+/* Shell */
+.shell{display:flex;min-height:calc(100vh - 56px)}
+.sidebar{
+  width:260px;background:#111827;color:#c7d2fe;position:sticky;top:56px;height:calc(100vh - 56px);
+  border-right:1px solid #0f172a;transition:transform .25s ease;will-change:transform
+}
+.sidebar.collapsed{transform:translateX(-100%)}
+.sidebar-inner{height:100%;overflow:auto;padding:12px 10px}
+.side-link{
+  display:flex;align-items:center;gap:10px;color:#aeb2d6;text-decoration:none;padding:10px 12px;border-radius:10px;margin:4px 0;transition:background .2s, color .2s
+}
+.side-link:hover{background:#2a2f4c;color:#fff}
+.side-link.active{background:#0d9488;color:#fff}
+.sidebar-footer{padding:12px 12px;color:#94a3b8;border-top:1px solid #1f2937;margin-top:8px}
+
+.main{flex:1; padding:18px}
+
+/* Cards */
+.cardx{
+  background:var(--card); border:1px solid var(--border); border-radius:14px; padding:16px;
+  box-shadow:0 8px 24px rgba(16,24,40,.06); transition:transform .2s, box-shadow .2s
+}
+.cardx:hover{transform:translateY(-1px); box-shadow:0 10px 28px rgba(16,24,40,.08)}
+
+/* Grid */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.gap-12{gap:12px}
+
+/* Forms */
+.form-control, .form-select, textarea{
+  border:1px solid var(--border); border-radius:10px; padding:10px 12px; background:#fff
+}
+.form-label{font-weight:600}
+.btn{border-radius:10px}
+
+/* Logs */
+.logview{
+  background:#0b1220;color:#d1e7ff;border-radius:10px;border:1px solid #0f1b33;
+  padding:12px;max-height:260px;overflow:auto;font-family:ui-monospace,Menlo,Consolas,monospace
+}
+
+/* KPI */
+.kpi{display:flex;gap:24px}
+.kpi .num{font-weight:800;font-size:1.4rem}
+.muted{color:var(--muted)}
+
+/* Table + pagination */
+.tablex{width:100%;border-collapse:collapse}
+.tablex th,.tablex td{padding:10px;border-bottom:1px solid var(--border);text-align:left}
+.paginationx{display:flex;gap:6px;justify-content:flex-end;margin-top:10px}
+.paginationx .page{padding:6px 10px;background:#fff;border:1px solid var(--border);border-radius:8px;cursor:pointer}
+.paginationx .page.active{background:var(--primary);border-color:var(--primary);color:#fff}
+
+/* Progress bar (Bootstrap override tiny) */
+.progress{background:#eef2ff;border-radius:999px}
+.progress-bar{background:linear-gradient(90deg,var(--primary),var(--primary-600));transition:width .2s ease}
+
+/* Responsive */
+@media (max-width: 992px){
+  .grid-2{grid-template-columns:1fr}
+  .grid-3{grid-template-columns:1fr 1fr}
+}
+@media (max-width: 576px){
+  .grid-3{grid-template-columns:1fr}
+}
