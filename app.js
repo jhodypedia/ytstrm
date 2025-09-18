@@ -26,6 +26,12 @@ app.use(cookieSession({
   maxAge: 24 * 60 * 60 * 1000
 }));
 
+// Inject session ke views
+app.use((req, res, next) => {
+  res.locals.session = req.session;
+  next();
+});
+
 // Views
 app.set('view engine', 'ejs');
 app.set('views', path.join(process.cwd(), 'views'));
@@ -34,11 +40,6 @@ app.set('layout', 'layout');
 
 // Static
 app.use('/public', express.static(path.join(process.cwd(), 'public')));
-
-app.use((req, res, next) => {
-  res.locals.session = req.session; // biar bisa dipakai di semua ejs
-  next();
-});
 
 // Routes
 app.use('/auth', authRouter);
