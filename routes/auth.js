@@ -11,8 +11,8 @@ const getOAuth = () => new google.auth.OAuth2(
 
 const SCOPES = [
   'https://www.googleapis.com/auth/youtube',
-  'https://www.googleapis.com/auth/youtube.force-ssl',
-  'https://www.googleapis.com/auth/youtube.upload'
+  'https://www.googleapis.com/auth/youtube.upload',
+  'https://www.googleapis.com/auth/youtube.force-ssl'
 ];
 
 router.get('/login', (req, res) => {
