@@ -95,10 +95,21 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);lin
 .badge.liveStarting, .badge.liveStarting {background:#0ea5e9}
 .badge.complete, .badge.completed {background:#6c757d}
 
-/* Logs */
-.logview{
-  background:#0b1220;color:#d1e7ff;border-radius:10px;border:1px solid #0f1b33;
-  padding:12px;max-height:260px;overflow:auto;font-family:ui-monospace,Menlo,Consolas,monospace
+/* Log Panel */
+.logview {
+  background: #0b1220;
+  color: #d1e7ff;
+  border-radius: 10px;
+  border: 1px solid #0f1b33;
+  padding: 12px;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+
+  /* fix height + scroll */
+  height: 220px;       /* bisa disesuaikan */
+  overflow-y: auto;
+  resize: vertical;    /* biar user bisa tarik resize manual (opsional) */
+  white-space: pre-wrap;
+  line-height: 1.4;
 }
 
 /* KPI */
